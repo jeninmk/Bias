@@ -1,0 +1,26 @@
+# Render blueprint for the Bias FastAPI backend.
+# Render -> New -> Blueprint -> select the jeninmk/Bias repo.
+# All secrets are set in the Render dashboard, never here.
+services:
+  - type: web
+    name: bias-api
+    runtime: python
+    plan: free
+    repo: https://github.com/jeninmk/Bias
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: INGEST_KEY
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: EBAY_CLIENT_ID
+        sync: false
+      - key: EBAY_CLIENT_SECRET
+        sync: false
