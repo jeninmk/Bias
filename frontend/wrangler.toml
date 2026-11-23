@@ -1,0 +1,10 @@
+# Cloudflare Worker serving the SvelteKit static build (adapter-static).
+# The dashboard Git-connected flow builds `frontend/` and runs
+# `npx wrangler deploy` from there; this file tells Wrangler to publish
+# the static output as Workers Static Assets with SPA fallback.
+name = "bias"
+compatibility_date = "2026-11-23"
+
+[assets]
+directory = "./build"
+not_found_handling = "single-page-application"
