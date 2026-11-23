@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+bias.db
+.env
+.pytest_cache/

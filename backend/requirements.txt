@@ -1,0 +1,14 @@
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+sqlalchemy>=2.0,<3
+pydantic>=2.6,<3
+feedparser>=6.0,<7
+slowapi>=0.1.9,<1
+python-dotenv>=1.0,<2
+# psycopg2-binary is only needed for Postgres (DATABASE_URL with
+# postgresql+psycopg2://...). Uncomment for a Postgres deploy:
+# psycopg2-binary>=2.9,<3
+
+# Test/dev only:
+pytest>=8.0,<9
+httpx>=0.27,<1
