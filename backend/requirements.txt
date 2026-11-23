@@ -5,8 +5,9 @@ pydantic>=2.6,<3
 feedparser>=6.0,<7
 slowapi>=0.1.9,<1
 python-dotenv>=1.0,<2
-# psycopg2-binary is the Postgres driver, required for a Postgres deploy.
-psycopg2-binary>=2.9,<3
+# psycopg (v3) is the Postgres driver SQLAlchemy 2 uses by default for
+# postgresql:// URLs. [binary] ships the prebuilt wheel.
+psycopg[binary]>=3.1,<4
 
 # Test/dev only:
 pytest>=8.0,<9
