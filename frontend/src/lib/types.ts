@@ -1,8 +1,9 @@
 /**
  * Types mirroring the v1 engine (`src/engine/types.ts` in the Next.js app)
- * and the FastAPI backend's JSON shapes. The backend returns these same
- * field names, so no mapping layer is needed — only defensive normalization
- * in `src/lib/api.ts` for envelope-vs-array responses.
+ * and the FastAPI backend's JSON shapes. The backend returns the same
+ * fields in snake_case (`canonical_attribute`, `trend_score`, ...);
+ * `src/lib/api.ts` converts every response to these camelCase names
+ * with `toCamel`, and also normalizes envelope-vs-array responses.
  */
 
 export type AttributeType =
