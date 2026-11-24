@@ -121,15 +121,12 @@ def test_methodology(seeded_client):
     r = seeded_client.get("/api/methodology")
     assert r.status_code == 200
     body = r.json()
-    assert "0.30*velocity" in body["formula"]
-    assert body["weights"] == {
-        "velocity": 0.30,
-        "volume": 0.20,
-        "breadth": 0.20,
-        "sentiment": 0.10,
-        "resale": 0.10,
-        "authority": 0.10,
-    }
+    # The scoring recipe is private: no formula, weights, normalizations,
+    # or thresholds anywhere in the response.
+    assert "formula" not in body
+    assert "weights" not in body
+    assert "normalization" not in r.text
+    assert "0.30" not in r.text
     assert {s["name"] for s in body["signals"]} >= {
         "velocity",
         "volume",
@@ -141,8 +138,7 @@ def test_methodology(seeded_client):
     }
     stages = {s["stage"] for s in body["lifecycle_stages"]}
     assert stages == {"emerging", "rising", "peak", "declining", "dead"}
-    assert body["typical_lifecycle_weeks"]["aesthetic"] == 12
-    assert body["typical_lifecycle_weeks"]["item"] == 6
+    assert body["hashtags"] == ["#fashiontok", "#ootd"]
     assert len(body["source_categories"]) == 17
 
 

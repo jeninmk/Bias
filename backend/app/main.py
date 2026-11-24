@@ -6,7 +6,7 @@ Endpoints:
     GET  /api/trends/{slug}    one trend: score breakdown, forecast,
                                weekly volumes, per-source breakdown
     GET  /api/colors           color trends with palette data
-    GET  /api/methodology      the formula, signals, and lifecycle stages
+    GET  /api/methodology      the public methodology summary
     POST /api/ingest/rss       run the editorial RSS collector
                                (header ``X-Ingest-Key``, see README)
 
@@ -29,12 +29,7 @@ from . import config
 from .collectors.rss import RSSCollector
 from .db import get_db, init_db
 from .engine import (
-    AUTHORITY_CATEGORIES,
-    RECENT_WINDOW_WEEKS,
-    RECENCY_HALF_LIFE_DAYS,
     SOURCE_CATEGORIES,
-    SOURCE_CATEGORY_COUNT,
-    TYPICAL_LIFECYCLE_WEEKS,
     VELOCITY_WINDOW_WEEKS,
     latest_week_start,
     weekly_volumes_chronological,
@@ -266,82 +261,77 @@ def list_colors(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/methodology")
 @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE} per minute")
 def methodology(request: Request):
+    """Public methodology summary.
+
+    Deliberately high level: the scoring recipe itself is private,
+    so this returns what the score is made of and where the data
+    comes from — never the formula, weights, normalizations, or
+    thresholds.
+    """
     return {
-        "formula": (
-            "Trend Score = 0.30*velocity + 0.20*volume + 0.20*breadth "
-            "+ 0.10*sentiment + 0.10*resale + 0.10*authority"
+        "summary": (
+            "Every trend gets a Trend Score from 0 to 100, built from six "
+            "signals — velocity, volume, breadth, sentiment, resale, and "
+            "authority — across 17 source categories."
         ),
-        "weights": {
-            "velocity": 0.30,
-            "volume": 0.20,
-            "breadth": 0.20,
-            "sentiment": 0.10,
-            "resale": 0.10,
-            "authority": 0.10,
-        },
         "signals": [
             {
                 "name": "velocity",
-                "definition": "Week-over-week growth of the latest complete week (raw weekly volumes).",
-                "normalization": "clamp(50 + growth_rate * 100, 0, 100): 0% growth scores 50, +50% scores 100, -50% scores 0.",
+                "description": "Is the trend picking up speed, week over week?",
             },
             {
                 "name": "volume",
-                "definition": "Recency-decayed total volume (14-day half-life exponential decay).",
-                "normalization": "100 * ln(1 + decayed_total) / ln(1 + max_decayed_total): log scale vs the highest-volume trend.",
+                "description": "How much are people talking about it and searching for it?",
             },
             {
                 "name": "breadth",
-                "definition": "Distinct source categories observing the trend in the last 4 weeks.",
-                "normalization": "distinct_categories / 17 * 100.",
+                "description": "How many different kinds of sources are seeing it?",
             },
             {
                 "name": "sentiment",
-                "definition": "Volume-weighted average sentiment over the last 4 weeks.",
-                "normalization": "((avg_sentiment + 1) / 2) * 100, mapping [-1, 1] to [0, 100].",
+                "description": "Do people like it — or just argue about it?",
             },
             {
                 "name": "resale",
-                "definition": "Resale price premium vs retail blended with sell-through rate.",
-                "normalization": "0.6 * clamp(50 + avg_premium * 100) + 0.4 * (sell_through_rate * 100); 50 (neutral) when no resale data exists.",
+                "description": "Are people paying more than retail for it secondhand?",
             },
             {
                 "name": "authority",
-                "definition": "Share of recent (4-week) volume from runway, editorial, and color-authority sources.",
-                "normalization": "clamp(authority_volume_share * 200, 0, 100).",
+                "description": "Did the runway and the editors get there first?",
             },
             {
                 "name": "confidence",
-                "definition": "Trust in the score from observation count and source diversity.",
-                "normalization": "0.5 * min(100, observation_count / 25 * 100) + 0.5 * (distinct_categories / 17 * 100).",
+                "description": (
+                    "How steady the score is, from how many sightings "
+                    "across how many sources."
+                ),
             },
         ],
-        "recency": {
-            "half_life_days": RECENCY_HALF_LIFE_DAYS,
-            "formula": "weight = 0.5 ^ (age_days / 14)",
-            "note": "Decay applies to volume, sentiment, and authority. Velocity uses raw weekly volumes.",
-        },
-        "windows": {
-            "velocity_window_weeks": VELOCITY_WINDOW_WEEKS,
-            "recent_window_weeks": RECENT_WINDOW_WEEKS,
-            "note": "Weekly windows anchor to the freshest week present in the data, so the latest complete week is never an empty future week.",
-        },
-        "lifecycle_stages": [
-            {"stage": "emerging", "rule": "relative_volume < 0.35, velocity_rate > 0.25, breadth <= 5"},
-            {"stage": "rising", "rule": "positive velocity, growing volume and breadth (default)"},
-            {"stage": "peak", "rule": "relative_volume >= 0.6 and |velocity_rate| <= 0.15"},
-            {"stage": "declining", "rule": "velocity_rate <= -0.15"},
-            {"stage": "dead", "rule": "relative_volume <= 0.12 and velocity_rate <= -0.20"},
-        ],
-        "typical_lifecycle_weeks": TYPICAL_LIFECYCLE_WEEKS,
-        "forecast": {
-            "formula": "weeks_to_peak = typical_lifecycle_weeks * (1 - relative_volume), clamped to 1-12; peak trends are ~1 week out",
-            "peak_window_weeks": "3 for color and aesthetic, 2 for other types",
-            "estimated_peak_score": "trend_score * (1 + max(0, velocity_rate) * 0.25), capped at 100; declining/dead trends have already peaked (0 weeks)",
-        },
+        "hashtags": ["#fashiontok", "#ootd"],
         "source_categories": SOURCE_CATEGORIES,
-        "source_category_count": SOURCE_CATEGORY_COUNT,
-        "authority_categories": AUTHORITY_CATEGORIES,
+        "source_category_count": len(SOURCE_CATEGORIES),
+        "lifecycle_stages": [
+            {
+                "stage": "emerging",
+                "description": "Small, growing fast, seen in just a few places.",
+            },
+            {
+                "stage": "rising",
+                "description": "Gaining ground: more mentions, more places, more people.",
+            },
+            {
+                "stage": "peak",
+                "description": "Everywhere at once, and leveling off.",
+            },
+            {"stage": "declining", "description": "Cooling down, week over week."},
+            {"stage": "dead", "description": "Gone quiet."},
+        ],
+        "data_note": (
+            "Scores currently come from a curated seed dataset of 433 "
+            "observations across 12 trends and 8 weeks. Editorial headlines "
+            "are the first live feed being connected; social-platform feeds "
+            "need approved access."
+        ),
     }
 
 

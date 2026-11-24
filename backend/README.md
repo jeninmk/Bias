@@ -60,7 +60,7 @@ every endpoint against a seeded SQLite DB via TestClient.
 | GET | `/api/trends` | ranked trends; empty list + message if DB is empty |
 | GET | `/api/trends/{slug}` | detail: score breakdown, forecast, weekly volumes, per-source breakdown |
 | GET | `/api/colors` | color trends with hex palettes |
-| GET | `/api/methodology` | formula, signals, lifecycle stages as JSON |
+| GET | `/api/methodology` | public methodology summary as JSON |
 | POST | `/api/ingest/rss` | run the RSS collector; header `X-Ingest-Key: <INGEST_KEY>` |
 
 CORS allows only `FRONTEND_ORIGIN` (default `http://localhost:5173`).
