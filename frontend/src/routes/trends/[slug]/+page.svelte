@@ -83,15 +83,14 @@
 		<section>
 			<h2 class="text-lg font-bold">Score breakdown</h2>
 			<p class="mt-1 text-sm text-stone-500">
-				Trend Score = 0.30·velocity + 0.20·volume + 0.20·breadth + 0.10·sentiment +
-				0.10·resale + 0.10·authority. Each component is normalized to 0–100 first.
+				Each component is scored 0–100, then combined into the Trend Score.
 			</p>
 			<div class="mt-4 grid gap-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm sm:grid-cols-2">
 				{#each [
 					{ label: 'Velocity', value: trend.score.velocity, hint: `Week-over-week growth ${formatPercent(trend.velocityRate)}.` },
-					{ label: 'Volume', value: trend.score.volume, hint: `Decayed total volume ${trend.totalVolume.toLocaleString()}, log-normalized vs the dataset max.` },
+					{ label: 'Volume', value: trend.score.volume, hint: `Decayed total volume ${trend.totalVolume.toLocaleString()}.` },
 					{ label: 'Breadth', value: trend.score.breadth, hint: `${trend.sourceCategories.length} of 17 source categories are observing this trend.` },
-					{ label: 'Sentiment', value: trend.score.sentiment, hint: 'Volume-weighted average sentiment over the last 4 weeks.' },
+					{ label: 'Sentiment', value: trend.score.sentiment, hint: 'How people feel about it, from recent mentions.' },
 					{ label: 'Resale', value: trend.score.resale, hint: 'Resale price premium vs retail plus sell-through. 50 when no resale data exists.' },
 					{ label: 'Authority', value: trend.score.authority, hint: 'Share of recent volume from runway, editorial, and color-authority sources.' }
 				] as bar (bar.label)}
