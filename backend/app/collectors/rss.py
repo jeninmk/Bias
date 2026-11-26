@@ -7,33 +7,33 @@ match with ``source_category='editorial'``.
 
 Matching is intentionally conservative: a variant must appear as a
 whole word/phrase in the title or description (case-insensitive).
-Volume is 1 per matching article — an article mentioning a trend is one
+Volume is 1 per matching article. An article mentioning a trend is one
 editorial sighting. Sentiment is 0.0 (neutral): v1 does no sentiment
 analysis on article text; the engine's sentiment component therefore
 treats these as neutral until a classifier is added.
 
 Feed URLs (checked 2026-11-23):
-- Hypebeast https://hypebeast.com/feed — VERIFIED live (fetched and
+- Hypebeast https://hypebeast.com/feed: VERIFIED live (fetched and
   returned current articles).
-- Vogue https://www.vogue.com/feed/rss — the publication's main RSS URL;
+- Vogue https://www.vogue.com/feed/rss: the publication's main RSS URL;
   could NOT be verified through the text fetcher used for the check
   (fetcher reported the page as not found, which does not prove the
-  feed is dead — Vogue bot-blocks some readers). If feedparser gets
+  feed is dead. Vogue bot-blocks some readers). If feedparser gets
   nothing from it, the collector logs the failure and continues.
-- Business of Fashion https://www.businessoffashion.com/feed/ — the
-  publication's main RSS URL; the text fetcher got HTTP 403 (BoF
+- Business of Fashion https://www.businessoffashion.com/feed/: the
+  publication\'s main RSS URL; the text fetcher got HTTP 403 (BoF
   bot-blocks non-browser readers), so it is unverified via that route.
   feedparser sends its own user agent and may succeed.
-- WWD https://wwd.com/feed/ — the publication's main RSS URL (WordPress
+- WWD https://wwd.com/feed/: the publication's main RSS URL (WordPress
   feed); the text fetcher blocks the wwd.com domain by policy, so it
   is unverified via that route.
-- ELLE https://www.elle.com/rss/ — the publication's main RSS URL;
+- ELLE https://www.elle.com/rss/: the publication's main RSS URL;
   unverified (not fetched during the check).
-- Highsnobiety https://www.highsnobiety.com/feed/ — the publication's
+- Highsnobiety https://www.highsnobiety.com/feed/: the publication's
   main RSS URL; unverified (not fetched during the check).
-- The Cut https://www.thecut.com/rss/ — the publication's main RSS URL;
+- The Cut https://www.thecut.com/rss/: the publication's main RSS URL;
   unverified (not fetched during the check).
-- Who What Wear https://www.whowhatwear.com/rss — the publication's
+- Who What Wear https://www.whowhatwear.com/rss: the publication's
   main RSS URL; unverified (not fetched during the check).
 
 A single dead feed never fails the run: per-feed errors are logged and
@@ -127,6 +127,52 @@ def _clean_text(value: str | None) -> str:
     return html.unescape(text)
 
 
+_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
+
+
+def _looks_like_image(url: str) -> bool:
+    """True for a URL that points at an image file (query string ignored)."""
+    path = url.split("?", 1)[0].lower()
+    return path.endswith(_IMAGE_EXTENSIONS)
+
+
+def extract_image_url(entry: dict) -> str | None:
+    """First usable image URL from a feedparser entry, if any.
+
+    Checks, in order: ``media:content``, ``media:thumbnail``, enclosures
+    with an image MIME type, enclosure links, then the first ``<img>``
+    in the entry's HTML content or summary (how most WordPress feeds,
+    Hypebeast included, carry their lead image). Returns None when the
+    entry carries no image. The trend then renders a typographic cover
+    instead of an invented picture.
+    """
+    for media in entry.get("media_content") or []:
+        url = media.get("url")
+        media_type = (media.get("type") or "").lower()
+        if url and (media_type.startswith("image/") or _looks_like_image(url)):
+            return url
+    for thumb in entry.get("media_thumbnail") or []:
+        url = thumb.get("url")
+        if url:
+            return url
+    for enc in entry.get("enclosures") or []:
+        href = enc.get("href")
+        if href and (enc.get("type") or "").lower().startswith("image/"):
+            return href
+    for link in entry.get("links") or []:
+        if link.get("rel") == "enclosure":
+            href = link.get("href")
+            if href and (link.get("type") or "").lower().startswith("image/"):
+                return href
+    html_parts = [c.get("value", "") for c in entry.get("content") or []]
+    html_parts.append(entry.get("summary") or "")
+    for part in html_parts:
+        match = re.search(r'<img[^>]+src="([^"]+)"', part or "")
+        if match:
+            return html.unescape(match.group(1))
+    return None
+
+
 def _entry_timestamp(entry: dict) -> datetime:
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
@@ -166,6 +212,7 @@ class RSSCollector(Collector):
                     continue
                 link = entry.get("link", "")
                 ts = _entry_timestamp(entry)
+                image_url = extract_image_url(entry)
                 for canonical, variant in matches.items():
                     digest = hashlib.md5(
                         f"{link}|{canonical}".encode("utf-8")
@@ -183,6 +230,10 @@ class RSSCollector(Collector):
                             timestamp=ts.isoformat(),
                             volume=1,
                             sentiment=0.0,
+                            image_url=image_url,
+                            article_url=link or None,
+                            article_title=title or None,
+                            image_source=name if image_url else None,
                         )
                     )
         return observations
