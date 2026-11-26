@@ -1,9 +1,13 @@
 <script lang="ts">
 	import BackendError from '$lib/components/BackendError.svelte';
+	import VolumeChart from '$lib/components/VolumeChart.svelte';
 	import {
 		CATEGORY_LABELS,
+		COLOR_HEX,
+		SIGNAL_LABELS,
 		STAGE_LABELS,
 		STAGE_STYLES,
+		bandForScore,
 		formatPercent
 	} from '$lib/trends';
 	import type { PageData } from './$types';
@@ -12,27 +16,64 @@
 
 	$: detail = data.detail;
 	$: trend = detail?.trend;
-	$: maxWeekVolume = detail ? Math.max(1, ...detail.weekly.map((w) => w.volume)) : 1;
+	$: band = trend ? bandForScore(trend.score.trendScore) : null;
 	$: peakLabel = !trend
 		? ''
 		: trend.forecast.weeksToPeak === 0
 			? 'Already peaked'
-			: `Peak in ~${trend.forecast.peakWindowStartWeeks}–${trend.forecast.peakWindowEndWeeks} weeks`;
+			: `Peak in about ${trend.forecast.peakWindowStartWeeks} to ${trend.forecast.peakWindowEndWeeks} weeks`;
 	$: asOfLabel = new Date('2026-11-23T12:00:00Z').toLocaleDateString('en-US', {
 		month: 'long',
 		day: 'numeric',
 		year: 'numeric'
 	});
+	$: staying = trend?.stayingPower ?? null;
+	$: stayingLine =
+		staying && staying.weeksInTop5 > 0
+			? `${staying.weeksInTop5} ${staying.weeksInTop5 === 1 ? 'week' : 'weeks'} in the Top 5`
+			: staying && staying.weeksInTop10 > 0
+				? `${staying.weeksInTop10} ${staying.weeksInTop10 === 1 ? 'week' : 'weeks'} in the Top 10`
+				: null;
 </script>
 
 <div class="space-y-10">
-	<a href="/" class="text-sm font-medium text-stone-500 hover:text-rose-900">← Back to dashboard</a>
+	<a href="/" class="text-sm font-medium text-stone-500 hover:text-rose-900">Back to the rack</a>
 
 	{#if data.error}
 		<BackendError message={data.error} apiBase={data.apiBase} />
 	{/if}
 
 	{#if trend && detail}
+		<!-- Cover -->
+		{#if trend.coverImage}
+			<figure>
+				<img
+					src={trend.coverImage.imageUrl}
+					alt={trend.coverImage.articleTitle ?? trend.canonicalAttribute}
+					class="aspect-[16/7] w-full rounded-xl object-cover shadow-sm"
+				/>
+				<figcaption class="mt-2 text-xs text-stone-500">
+					Photo: {trend.coverImage.source}
+					{#if trend.coverImage.articleTitle && trend.coverImage.articleUrl}
+						{' · '}
+						<a
+							href={trend.coverImage.articleUrl}
+							target="_blank"
+							rel="noreferrer"
+							class="font-medium text-rose-900 hover:underline"
+						>
+							{trend.coverImage.articleTitle}
+						</a>
+					{/if}
+				</figcaption>
+			</figure>
+		{:else if trend.attributeType === 'color' && COLOR_HEX[trend.canonicalAttribute]}
+			<div
+				class="aspect-[16/7] w-full rounded-xl shadow-sm"
+				style="background-color: {COLOR_HEX[trend.canonicalAttribute]}"
+			></div>
+		{/if}
+
 		<!-- Header -->
 		<section class="flex flex-wrap items-start justify-between gap-4">
 			<div>
@@ -56,6 +97,11 @@
 				<span class="rounded-full px-3 py-1 text-sm font-semibold ring-1 {STAGE_STYLES[trend.stage]}">
 					{STAGE_LABELS[trend.stage]}
 				</span>
+				{#if band && band.label !== STAGE_LABELS[trend.stage]}
+					<span class="rounded-full px-3 py-1 text-sm font-semibold ring-1 {band.style}">
+						{band.label}
+					</span>
+				{/if}
 				<div class="rounded-xl border border-stone-200 bg-white px-4 py-2 text-center shadow-sm">
 					<p class="text-2xl font-black leading-none">{trend.score.trendScore}</p>
 					<p class="mt-1 text-[11px] uppercase tracking-wide text-stone-500">Trend Score</p>
@@ -68,7 +114,7 @@
 			<h2 class="text-sm font-bold uppercase tracking-wide text-rose-900">Forecast</h2>
 			<p class="mt-2 text-lg font-semibold">{peakLabel}</p>
 			<p class="mt-1 text-sm text-stone-600">
-				Projected peak score {trend.forecast.estimatedPeakScore} · velocity
+				Projected peak score {trend.forecast.estimatedPeakScore} · momentum
 				{formatPercent(trend.velocityRate)} week over week
 				{#if trend.accelerationRate !== 0}
 					({trend.accelerationRate > 0 ? 'accelerating' : 'decelerating'} by {Math.abs(
@@ -79,20 +125,39 @@
 			</p>
 		</section>
 
+		<!-- Staying power -->
+		{#if stayingLine}
+			<section class="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+				<h2 class="text-sm font-bold uppercase tracking-wide text-stone-700">Staying power</h2>
+				<p class="mt-2 text-lg font-semibold">{stayingLine}</p>
+				<p class="mt-1 text-sm text-stone-600">
+					{#if staying}
+						{staying.weeksInTop10}
+						{staying.weeksInTop10 === 1 ? 'week' : 'weeks'} in the Top 10 in total
+						{#if staying.currentStreakWeeks > 1}
+							, including a {staying.currentStreakWeeks} week streak right now
+						{/if}
+						. A trend that keeps returning to the top ranks is steadier than one that
+						flashes once and fades.
+					{/if}
+				</p>
+			</section>
+		{/if}
+
 		<!-- Score breakdown -->
 		<section>
 			<h2 class="text-lg font-bold">Score breakdown</h2>
 			<p class="mt-1 text-sm text-stone-500">
-				Each component is scored 0–100, then combined into the Trend Score.
+				Each component is scored 0 to 100, then combined into the Trend Score.
 			</p>
 			<div class="mt-4 grid gap-5 rounded-xl border border-stone-200 bg-white p-5 shadow-sm sm:grid-cols-2">
 				{#each [
-					{ label: 'Velocity', value: trend.score.velocity, hint: `Week-over-week growth ${formatPercent(trend.velocityRate)}.` },
-					{ label: 'Volume', value: trend.score.volume, hint: `Decayed total volume ${trend.totalVolume.toLocaleString()}.` },
-					{ label: 'Breadth', value: trend.score.breadth, hint: `${trend.sourceCategories.length} of 17 source categories are observing this trend.` },
-					{ label: 'Sentiment', value: trend.score.sentiment, hint: 'How people feel about it, from recent mentions.' },
-					{ label: 'Resale', value: trend.score.resale, hint: 'Resale price premium vs retail plus sell-through. 50 when no resale data exists.' },
-					{ label: 'Authority', value: trend.score.authority, hint: 'Share of recent volume from runway, editorial, and color-authority sources.' }
+					{ label: SIGNAL_LABELS.velocity, value: trend.score.velocity, hint: `Week-over-week growth ${formatPercent(trend.velocityRate)}.` },
+					{ label: SIGNAL_LABELS.volume, value: trend.score.volume, hint: `Decayed total volume ${trend.totalVolume.toLocaleString()}.` },
+					{ label: SIGNAL_LABELS.breadth, value: trend.score.breadth, hint: `${trend.sourceCategories.length} of 17 source categories are observing this trend.` },
+					{ label: SIGNAL_LABELS.sentiment, value: trend.score.sentiment, hint: 'How people feel about it, from recent mentions.' },
+					{ label: SIGNAL_LABELS.resale, value: trend.score.resale, hint: 'Resale price premium vs retail plus sell-through. 50 when no resale data exists.' },
+					{ label: SIGNAL_LABELS.authority, value: trend.score.authority, hint: 'Share of recent volume from runway, editorial, and color-authority sources.' }
 				] as bar (bar.label)}
 					<div>
 						<div class="flex items-baseline justify-between text-sm">
@@ -112,27 +177,12 @@
 		<section>
 			<h2 class="text-lg font-bold">Weekly volume</h2>
 			<p class="mt-1 text-sm text-stone-500">
-				Raw weekly mentions/searches. Latest week {trend.latestWeekVolume.toLocaleString()} vs
+				Raw weekly mentions and searches. Latest week {trend.latestWeekVolume.toLocaleString()} vs
 				{trend.previousWeekVolume.toLocaleString()} the week before.
 			</p>
-			{#if detail.weekly.length}
-				<div class="mt-4 flex items-end gap-2 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
-					{#each detail.weekly as w (w.week)}
-						<div class="flex flex-1 flex-col items-center gap-1">
-							<span class="text-xs font-semibold">{w.volume.toLocaleString()}</span>
-							<div
-								class="w-full rounded-t bg-rose-900/80"
-								style="height: {Math.max(4, (w.volume / maxWeekVolume) * 140)}px"
-							></div>
-							<span class="text-[11px] text-stone-500">{w.week.slice(5)}</span>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<p class="mt-4 rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-500 shadow-sm">
-					Weekly volumes are not available from the backend for this trend yet.
-				</p>
-			{/if}
+			<div class="mt-4">
+				<VolumeChart weekly={detail.weekly} />
+			</div>
 		</section>
 
 		<!-- Source breakdown -->
@@ -175,7 +225,7 @@
 				</p>
 			{/if}
 			<p class="mt-3 text-xs text-stone-500">
-				Data as of {asOfLabel} · v1 seed data, curated — see the methodology page for limitations.
+				Data as of {asOfLabel} · v1 seed data, curated. See the methodology page for limitations.
 			</p>
 		</section>
 	{/if}
