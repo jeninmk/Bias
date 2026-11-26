@@ -8,7 +8,7 @@ map to that canonical name (matching is case-insensitive, exact match
 after trimming). Anything not listed here normalizes to its own
 lowercased, trimmed form.
 
-Port of ``src/engine/synonyms.ts`` — the map is copied verbatim.
+Port of ``src/engine/synonyms.ts``: the map is copied verbatim.
 """
 
 from __future__ import annotations
