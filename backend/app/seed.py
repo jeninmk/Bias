@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from .db import SessionLocal, init_db
 from .engine.score import parse_timestamp, score_trends
 from .engine.types import Observation as EngineObservation, PriceData
-from .models import IngestionRun, Observation, TrendScore
+from .models import IngestionRun, Observation, TrendScore, TrendSnapshot
 
 SEED_PATH = (
     Path(__file__).resolve().parent.parent.parent
@@ -98,6 +98,26 @@ def compute_and_store_scores(db: Session, engine_obs: list[EngineObservation]) -
                 peak_window_start_weeks=t.forecast.peak_window_start_weeks,
                 peak_window_end_weeks=t.forecast.peak_window_end_weeks,
                 estimated_peak_score=t.forecast.estimated_peak_score,
+                computed_at=now,
+            )
+        )
+    # Staying-power history: one snapshot row per trend for this scoring
+    # date, ranked by score. Re-scoring the same date replaces that
+    # date's rows, so history stays one row per trend per date.
+    snapshot_date = as_of.date()
+    db.query(TrendSnapshot).filter(
+        TrendSnapshot.snapshot_date == snapshot_date
+    ).delete()
+    ranked = sorted(scored, key=lambda t: (-t.score.trend_score, t.canonical_attribute))
+    for rank, t in enumerate(ranked, start=1):
+        db.add(
+            TrendSnapshot(
+                canonical_attribute=t.canonical_attribute,
+                attribute_type=t.attribute_type,
+                trend_score=t.score.trend_score,
+                rank=rank,
+                stage=t.stage,
+                snapshot_date=snapshot_date,
                 computed_at=now,
             )
         )
