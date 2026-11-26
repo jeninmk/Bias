@@ -5,7 +5,7 @@ A trend candidate is ONE attribute: a color, pattern, silhouette, item,
 fabric, or aesthetic. Every signal the engine computes is derived from
 observations of that attribute across many sources.
 
-Port of ``src/engine/types.ts`` — pure data, no I/O.
+Port of ``src/engine/types.ts``: pure data, no I/O.
 """
 
 from __future__ import annotations
@@ -88,6 +88,12 @@ class Observation:
     volume: float
     sentiment: float  # -1 (negative) to 1 (positive)
     price: Optional[PriceData] = None
+    # Magazine visual, when the observation came from an article that
+    # carries one (RSS collector). Not every observation has an image.
+    image_url: Optional[str] = None
+    article_url: Optional[str] = None
+    article_title: Optional[str] = None
+    image_source: Optional[str] = None
 
 
 @dataclass
