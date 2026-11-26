@@ -35,9 +35,9 @@ export type SourceCategory =
 
 export type LifecycleStage = 'emerging' | 'rising' | 'peak' | 'declining' | 'dead';
 
-/** The six normalized (0–100) scoring components plus the final score. */
+/** The six normalized (0 to 100) scoring components plus the final score. */
 export interface TrendScore {
-	/** Final Trend Score, 0–100. */
+	/** Final Trend Score, 0 to 100. */
 	trendScore: number;
 	/** Week-over-week growth, normalized. Weight 0.30. */
 	velocity: number;
@@ -51,7 +51,7 @@ export interface TrendScore {
 	resale: number;
 	/** Runway / editorial / color-authority weight. Weight 0.10. */
 	authority: number;
-	/** Confidence in the score, 0–100, from observation count and source diversity. */
+	/** Confidence in the score, 0 to 100, from observation count and source diversity. */
 	confidence: number;
 }
 
@@ -63,8 +63,25 @@ export interface Forecast {
 	peakWindowStartWeeks: number;
 	/** End of the projected peak window, in weeks from now. */
 	peakWindowEndWeeks: number;
-	/** Trend Score the trend is projected to reach at its peak, 0–100. */
+	/** Trend Score the trend is projected to reach at its peak, 0 to 100. */
 	estimatedPeakScore: number;
+}
+
+/** A trend's cover photo, captured from a magazine article. Null
+ * until a collector captures one for the trend. */
+export interface CoverImage {
+	imageUrl: string;
+	source: string;
+	articleUrl: string | null;
+	articleTitle: string | null;
+}
+
+/** How often a trend keeps making the top ranks, from stored weekly
+ * snapshots. Null until any snapshot exists. */
+export interface StayingPower {
+	weeksInTop5: number;
+	weeksInTop10: number;
+	currentStreakWeeks: number;
 }
 
 /** A trend candidate with every computed signal attached. */
@@ -82,13 +99,17 @@ export interface ScoredTrend {
 	latestWeekVolume: number;
 	/** Raw volume in the week before that. */
 	previousWeekVolume: number;
-	/** Week-over-week growth rate of the latest week, e.g. 0.35 = +35%. */
+	/** Week-over-week growth rate of the latest week, e.g. 0.35 is +35%. */
 	velocityRate: number;
 	/** Change in the growth rate vs the week before, in percentage points. */
 	accelerationRate: number;
-	/** Relative volume vs the highest-volume trend in the dataset (0–1). */
+	/** Relative volume vs the highest-volume trend in the dataset (0 to 1). */
 	relativeVolume: number;
 	forecast: Forecast;
+	/** Cover photo from a magazine article, or null. */
+	coverImage: CoverImage | null;
+	/** Staying power from weekly snapshots, or null. */
+	stayingPower: StayingPower | null;
 }
 
 /** Per-source-category rollup used on the trend detail page. */
