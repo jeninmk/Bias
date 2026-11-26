@@ -3,7 +3,7 @@ engine's scores and stages over the v1 seed dataset.
 
 Expected values come from the v1 report (scores allow +/-1 tolerance,
 stages must match exactly). Scoring date is the freshest observation
-in the seed data — the TS engine anchors its weekly windows to the
+in the seed data. The TS engine anchors its weekly windows to the
 freshest week present and computes recency decay vs the scoring date.
 """
 

@@ -1,4 +1,4 @@
-"""YouTube collector — DOCUMENTED STUB (not yet implemented).
+"""YouTube collector: DOCUMENTED STUB (not yet implemented).
 
 Plan (from ``docs/sources.md``): use the YouTube Data API v3 (free tier,
 quota-limited) to search a fixed keyword list weekly for hauls, trend
@@ -6,7 +6,7 @@ roundups, and try-ons; view counts become volume, ``source_category``
 is ``youtube``.
 
 Access: one API key, read ONLY from the ``YOUTUBE_API_KEY`` environment
-variable. No real API key exists for this project — do not invent one
+variable. No real API key exists for this project. Do not invent one
 and do not put any key-like value anywhere. ``collect()`` raises a
 clear error when the key is absent, and ``NotImplementedError`` until
 the search implementation lands.

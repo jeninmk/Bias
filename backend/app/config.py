@@ -1,6 +1,6 @@
 """Configuration from environment variables.
 
-No secrets are stored here — values are read from the environment (or a
+No secrets are stored here. Values are read from the environment (or a
 ``.env`` file in local dev) at runtime. See ``.env.example``.
 """
 

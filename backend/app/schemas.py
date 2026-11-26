@@ -30,6 +30,32 @@ class ForecastOut(BaseModel):
     estimated_peak_score: int
 
 
+class CoverImageOut(BaseModel):
+    """A trend's cover photo, captured from a magazine article.
+
+    ``source`` is the publication (e.g. "Vogue"); ``article_url`` /
+    ``article_title`` point at the article it came from. Null on the
+    trend when no article image has been captured yet.
+    """
+
+    image_url: str
+    source: str
+    article_url: Optional[str] = None
+    article_title: Optional[str] = None
+
+
+class StayingPowerOut(BaseModel):
+    """How often a trend keeps making the top ranks.
+
+    Counts distinct snapshot weeks (one snapshot per scoring event).
+    Null on the trend until any snapshot exists.
+    """
+
+    weeks_in_top_5: int
+    weeks_in_top_10: int
+    current_streak_weeks: int
+
+
 class TrendOut(BaseModel):
     canonical_attribute: str
     attribute_type: str
@@ -45,6 +71,8 @@ class TrendOut(BaseModel):
     relative_volume: float
     forecast: ForecastOut
     computed_at: Optional[datetime] = None
+    cover_image: Optional[CoverImageOut] = None
+    staying_power: Optional[StayingPowerOut] = None
 
     @classmethod
     def from_scored(cls, t, computed_at=None) -> "TrendOut":

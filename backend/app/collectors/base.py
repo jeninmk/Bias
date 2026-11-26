@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..engine.score import parse_timestamp
 from ..engine.types import Observation as EngineObservation
-from ..models import IngestionRun, Observation as ObservationRow
+from ..models import IngestionRun, Observation as ObservationRow, TrendImage
 from ..seed import compute_and_store_scores
 
 
@@ -67,8 +67,20 @@ def persist_observations(db: Session, observations: list[EngineObservation]) -> 
     """Insert (or upsert by id) a batch of observations, then recompute
     and store trend scores over ALL observations in the DB.
 
-    Returns the number of observations written.
+    Observations are deduped by id first (keep the first): the same
+    article can arrive from more than one feed in a run, and merging
+    two pending rows with the same id would violate the primary key.
+    Returns the number of unique observations written.
     """
+    seen: set[str] = set()
+    unique: list[EngineObservation] = []
+    for eo in observations:
+        key = eo.id or f"obs-{uuid.uuid4().hex[:12]}"
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(eo)
+    observations = unique
     for eo in observations:
         db.merge(
             ObservationRow(
@@ -91,6 +103,29 @@ def persist_observations(db: Session, observations: list[EngineObservation]) -> 
                     if eo.price
                     else None
                 ),
+            )
+        )
+    db.commit()
+    # Keep one cover image per trend: the freshest article image seen
+    # in this batch. Only observations that carry an image take part;
+    # a trend with no article image keeps whatever it had (or none).
+    freshest: dict[str, EngineObservation] = {}
+    for eo in observations:
+        if not eo.image_url:
+            continue
+        prev = freshest.get(eo.canonical_attribute)
+        if prev is None or parse_timestamp(eo.timestamp) > parse_timestamp(prev.timestamp):
+            freshest[eo.canonical_attribute] = eo
+    now = datetime.now(timezone.utc)
+    for canonical, eo in freshest.items():
+        db.merge(
+            TrendImage(
+                canonical_attribute=canonical,
+                image_url=eo.image_url,
+                image_source=eo.image_source or eo.source,
+                article_url=eo.article_url,
+                article_title=eo.article_title,
+                captured_at=now,
             )
         )
     db.commit()

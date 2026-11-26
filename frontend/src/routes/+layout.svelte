@@ -28,8 +28,8 @@
 			class="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-6 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between"
 		>
 			<span>
-				Bias — scores computed from a curated seed dataset of 433 observations across 12 trends
-				and 8 weeks.
+				Bias scores are computed from a curated seed dataset of 433 observations across 12
+				trends and 8 weeks.
 			</span>
 			<span>Not buying advice. Trends are directional, not certain.</span>
 		</div>

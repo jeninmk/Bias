@@ -7,7 +7,7 @@
  *
  * Every helper returns `{ data, error }` and never throws, so a
  * `+page.ts` load function can render a "backend not reachable" state
- * instead of failing — and `npm run build` succeeds with no backend
+ * instead of failing. `npm run build` succeeds with no backend
  * running (no page is prerendered; loads run at request time).
  *
  * The FastAPI backend speaks snake_case (`canonical_attribute`,
@@ -27,13 +27,15 @@ export type ApiResult<T> = { data: T | null; error: string | null };
  * Pydantic schemas are snake_case by design; the frontend's types
  * are camelCase. Without this, every field read (`trendScore`,
  * `sourceCategories`, `canonicalAttribute`, ...) comes back
- * `undefined` and the pages crash on the real data. */
+ * `undefined` and the pages crash on the real data. The character
+ * after an underscore may be a digit (e.g. `weeks_in_top_5` becomes
+ * `weeksInTop5`), so the pattern covers letters and digits. */
 function toCamel(value: unknown): unknown {
 	if (Array.isArray(value)) return value.map(toCamel);
 	if (value && typeof value === 'object') {
 		return Object.fromEntries(
 			Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-				key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase()),
+				key.replace(/_([a-z0-9])/g, (_match, letter: string) => letter.toUpperCase()),
 				toCamel(entry)
 			])
 		);
@@ -68,7 +70,7 @@ function byScoreDesc(a: ScoredTrend, b: ScoredTrend): number {
 	return b.score.trendScore - a.score.trendScore;
 }
 
-/** GET /api/trends — ranked list (highest Trend Score first). */
+/** GET /api/trends: ranked list (highest Trend Score first). */
 export async function fetchTrends(): Promise<ApiResult<ScoredTrend[]>> {
 	const { data, error } = await getJson<unknown>('/api/trends');
 	if (error || !data) return { data: null, error };
@@ -77,7 +79,7 @@ export async function fetchTrends(): Promise<ApiResult<ScoredTrend[]>> {
 }
 
 /**
- * GET /api/trends/{slug} — one trend's detail. Accepts a flat
+ * GET /api/trends/{slug}: one trend's detail. Accepts a flat
  * ScoredTrend, or an object wrapping it with `breakdown`,
  * `weekly` / `weeklyVolumes`, and `rawTerms` alongside it. The
  * backend names these `source_breakdown` / `weekly_volumes`;
@@ -104,10 +106,10 @@ export async function fetchTrendDetail(slug: string): Promise<ApiResult<TrendDet
 }
 
 /**
- * GET /api/colors — color trends. Accepts a bare array of trends, an
+ * GET /api/colors: color trends. Accepts a bare array of trends, an
  * envelope `{ colors: [...] }`, or a `{ trends: [...] }` list (filtered
  * to colors). Falls back to filtering GET /api/trends when the colors
- * endpoint is missing — and also when it answers with its minimal
+ * endpoint is missing, and also when it answers with its minimal
  * shape, which has no `sourceCategories` / `forecast` / `velocityRate`
  * for the colors page to render.
  */
@@ -134,7 +136,7 @@ export async function fetchColors(): Promise<ApiResult<ScoredTrend[]>> {
 	return { data: trends.data.filter((t) => t.attributeType === 'color'), error: null };
 }
 
-/** GET /api/methodology — the scoring spec. The methodology page is
+/** GET /api/methodology: the scoring spec. The methodology page is
  * static content ported from v1, so a failure here is non-fatal: the
  * page renders its built-in copy and ignores the error. */
 export async function fetchMethodology(): Promise<ApiResult<Record<string, unknown>>> {

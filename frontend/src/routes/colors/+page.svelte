@@ -1,6 +1,13 @@
 <script lang="ts">
 	import BackendError from '$lib/components/BackendError.svelte';
-	import { COLOR_HEX, PANTONE_COTY_2025, STAGE_LABELS, STAGE_STYLES, slugify } from '$lib/trends';
+	import {
+		COLOR_HEX,
+		PANTONE_COTY_2025,
+		STAGE_LABELS,
+		STAGE_STYLES,
+		bandForScore,
+		slugify
+	} from '$lib/trends';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -11,7 +18,7 @@
 		<p class="text-xs font-semibold uppercase tracking-widest text-rose-900">Color intelligence</p>
 		<h1 class="mt-2 text-4xl font-black tracking-tight">The palette</h1>
 		<p class="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
-			Colors run longer than any other trend type — a typical color lifecycle is about 10 weeks,
+			Colors run longer than any other trend type. A typical color lifecycle is about 10 weeks,
 			against 6 for a single item. The strongest early signal for a color is the color
 			authorities: Pantone&apos;s seasonal reports and WGSN forecasts, confirmed by runway look
 			counts.
@@ -46,6 +53,8 @@
 						</div>
 						<p class="mt-2 text-sm text-stone-600">
 							Score <span class="font-bold text-stone-900">{t.score.trendScore}</span>
+							{' · '}
+							<span class="font-semibold text-stone-900">{bandForScore(t.score.trendScore).label}</span>
 							{' · '}velocity
 							<span class="font-semibold {t.velocityRate >= 0 ? 'text-emerald-700' : 'text-rose-700'}">
 								{t.velocityRate >= 0 ? '+' : ''}{Math.round(t.velocityRate * 100)}%
@@ -55,7 +64,7 @@
 						<p class="mt-1 text-sm text-stone-600">
 							{t.forecast.weeksToPeak === 0
 								? 'Already peaked'
-								: `Projected peak in ~${t.forecast.peakWindowStartWeeks}–${t.forecast.peakWindowEndWeeks} weeks`}
+								: `Projected peak in about ${t.forecast.peakWindowStartWeeks} to ${t.forecast.peakWindowEndWeeks} weeks`}
 						</p>
 					</div>
 				</a>
@@ -79,7 +88,7 @@
 					Pantone announces each year&apos;s Color of the Year in December, alongside seasonal
 					Fashion Color Trend Reports for New York and London fashion weeks. A seasonal Pantone
 					pick that also shows up in runway look counts is one of the strongest early signals
-					in the whole engine — it is why color authority carries its own scoring weight. The
+					in the whole engine. That is why color authority carries its own scoring weight. The
 					2026 Color of the Year is announced in December 2026; this page will update when it
 					lands.
 				</p>

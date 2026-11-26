@@ -1,4 +1,4 @@
-"""Bias API — FastAPI app serving scored fashion trends from the DB.
+"""Bias API: FastAPI app serving scored fashion trends from the DB.
 
 Endpoints:
     GET  /health               liveness check
@@ -35,12 +35,19 @@ from .engine import (
     weekly_volumes_chronological,
 )
 from .engine.types import Observation as EngineObservation
-from .models import Observation as ObservationRow, TrendScore
+from .models import (
+    Observation as ObservationRow,
+    TrendImage,
+    TrendScore,
+    TrendSnapshot,
+)
 from .schemas import (
     ColorTrendOut,
+    CoverImageOut,
     ForecastOut,
     IngestOut,
     SourceBreakdownOut,
+    StayingPowerOut,
     TrendDetailOut,
     TrendOut,
     TrendScoreOut,
@@ -53,7 +60,7 @@ limiter = Limiter(
     default_limits=[f"{config.RATE_LIMIT_PER_MINUTE} per minute"],
 )
 
-app = FastAPI(title="Bias — Fashion Trend Forecasting API", version="0.1.0")
+app = FastAPI(title="Bias: Fashion Trend Forecasting API", version="0.1.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -89,7 +96,58 @@ COLOR_PALETTES: dict[str, list[str]] = {
 }
 
 
-def _trend_out(row: TrendScore) -> TrendOut:
+def _staying_power(db: Session, canonical: str) -> StayingPowerOut | None:
+    """Weeks in the Top 5 / Top 10 and the current Top 10 streak.
+
+    Read from stored snapshots (one row per trend per scoring event).
+    The streak counts consecutive snapshot weeks, latest first, in
+    which the trend ranked in the Top 10. Returns None until any
+    snapshot exists for the trend, so the frontend can omit the line
+    instead of inventing a history.
+    """
+    rows = (
+        db.query(TrendSnapshot)
+        .filter(TrendSnapshot.canonical_attribute == canonical)
+        .order_by(TrendSnapshot.snapshot_date.desc())
+        .all()
+    )
+    if not rows:
+        return None
+    by_date: dict = {}
+    for row in rows:
+        by_date.setdefault(row.snapshot_date, row.rank)
+    dates = sorted(by_date, reverse=True)
+    weeks_top_5 = sum(1 for d in dates if by_date[d] <= 5)
+    weeks_top_10 = sum(1 for d in dates if by_date[d] <= 10)
+    streak = 0
+    for d in dates:
+        if by_date[d] <= 10:
+            streak += 1
+        else:
+            break
+    return StayingPowerOut(
+        weeks_in_top_5=weeks_top_5,
+        weeks_in_top_10=weeks_top_10,
+        current_streak_weeks=streak,
+    )
+
+
+def _trend_out(row: TrendScore, db: Session) -> TrendOut:
+    image = (
+        db.query(TrendImage)
+        .filter(TrendImage.canonical_attribute == row.canonical_attribute)
+        .first()
+    )
+    cover = (
+        CoverImageOut(
+            image_url=image.image_url,
+            source=image.image_source,
+            article_url=image.article_url,
+            article_title=image.article_title,
+        )
+        if image
+        else None
+    )
     return TrendOut(
         canonical_attribute=row.canonical_attribute,
         attribute_type=row.attribute_type,
@@ -119,6 +177,8 @@ def _trend_out(row: TrendScore) -> TrendOut:
             estimated_peak_score=row.estimated_peak_score,
         ),
         computed_at=row.computed_at,
+        cover_image=cover,
+        staying_power=_staying_power(db, row.canonical_attribute),
     )
 
 
@@ -180,14 +240,14 @@ def list_trends(request: Request, db: Session = Depends(get_db)):
                 "`python scripts/seed_db.py` (see README.md)."
             ),
         )
-    return TrendsListOut(trends=[_trend_out(r) for r in rows], count=len(rows))
+    return TrendsListOut(trends=[_trend_out(r, db) for r in rows], count=len(rows))
 
 
 @app.get("/api/trends/{slug}", response_model=TrendDetailOut)
 @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE} per minute")
 def trend_detail(request: Request, slug: str, db: Session = Depends(get_db)):
     row = _find_trend_row(db, slug)
-    base = _trend_out(row)
+    base = _trend_out(row, db)
 
     observations = _engine_observations(db, canonical=row.canonical_attribute)
     weekly: list[WeeklyVolumeOut] = []
@@ -265,18 +325,18 @@ def methodology(request: Request):
 
     Deliberately high level: the scoring recipe itself is private,
     so this returns what the score is made of and where the data
-    comes from — never the formula, weights, normalizations, or
+    comes from, never the formula, weights, normalizations, or
     thresholds.
     """
     return {
         "summary": (
             "Every trend gets a Trend Score from 0 to 100, built from six "
-            "signals — velocity, volume, breadth, sentiment, resale, and "
-            "authority — across 17 source categories."
+            "signals: momentum, volume, breadth, sentiment, resale, and "
+            "authority, across 17 source categories."
         ),
         "signals": [
             {
-                "name": "velocity",
+                "name": "momentum",
                 "description": "Is the trend picking up speed, week over week?",
             },
             {
@@ -289,7 +349,7 @@ def methodology(request: Request):
             },
             {
                 "name": "sentiment",
-                "description": "Do people like it — or just argue about it?",
+                "description": "Do people like it, or just argue about it?",
             },
             {
                 "name": "resale",

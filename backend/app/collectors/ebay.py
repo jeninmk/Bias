@@ -1,4 +1,4 @@
-"""eBay collector — DOCUMENTED STUB (not yet implemented).
+"""eBay collector: DOCUMENTED STUB (not yet implemented).
 
 Plan (from ``docs/sources.md``): eBay is the one automatable resale
 source. The eBay Browse API (approved developer app) returns sold
@@ -9,7 +9,7 @@ scraping, so eBay is the resale collector.
 
 Access: OAuth client credentials, read ONLY from the
 ``EBAY_CLIENT_ID`` and ``EBAY_CLIENT_SECRET`` environment variables.
-No real credentials exist for this project — do not invent any and do
+No real credentials exist for this project. Do not invent any and do
 not put any key-like value anywhere. ``collect()`` raises a clear error
 when the credentials are absent, and ``NotImplementedError`` until the
 Browse API implementation lands.
