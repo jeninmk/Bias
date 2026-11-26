@@ -57,8 +57,8 @@ every endpoint against a seeded SQLite DB via TestClient.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/health` | liveness |
-| GET | `/api/trends` | ranked trends; empty list + message if DB is empty |
-| GET | `/api/trends/{slug}` | detail: score breakdown, forecast, weekly volumes, per-source breakdown |
+| GET | `/api/trends` | ranked trends; each carries `cover_image` (null until an article image is captured) and `staying_power` (null until a snapshot exists); empty list + message if DB is empty |
+| GET | `/api/trends/{slug}` | detail: score breakdown, forecast, weekly volumes, per-source breakdown, plus the trend's `cover_image` and `staying_power` |
 | GET | `/api/colors` | color trends with hex palettes |
 | GET | `/api/methodology` | public methodology summary as JSON |
 | POST | `/api/ingest/rss` | run the RSS collector; header `X-Ingest-Key: <INGEST_KEY>` |
@@ -75,6 +75,16 @@ API routes are rate-limited (default 60 requests/minute per IP;
   observations with `source_category='editorial'`. GitHub Actions calls
   `POST /api/ingest/rss` with the `INGEST_KEY` secret on a schedule.
   One dead feed never fails the run — per-feed errors are logged.
+  The collector also captures each matching article's lead image
+  (`media:content`, `media:thumbnail`, enclosures, or the first `<img>`
+  in the HTML content) with the publication as credit; the freshest
+  image per trend is stored in `trend_images` and served as the
+  trend's cover photo.
+- **Staying power:** every scoring event (seed or ingest) writes one
+  `trend_snapshots` row per trend (rank + score for that date).
+  The API reads them back as `staying_power`: weeks in the Top 5,
+  weeks in the Top 10, and the current Top 10 streak. Snapshot rows
+  accumulate; re-scoring the same date replaces that date's rows.
 - **YouTube / eBay (documented stubs):** `app/collectors/youtube.py`
   and `ebay.py` read API keys only from env vars (`YOUTUBE_API_KEY`,
   `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET`) and raise a clear error when
