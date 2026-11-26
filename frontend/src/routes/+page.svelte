@@ -1,12 +1,14 @@
 <script lang="ts">
 	import BackendError from '$lib/components/BackendError.svelte';
-	import { STAGE_LABELS, STAGE_STYLES, formatPercent, slugify } from '$lib/trends';
+	import TrendCover from '$lib/components/TrendCover.svelte';
+	import { SCORE_BANDS, SIGNAL_DESCRIPTIONS, SIGNAL_LABELS } from '$lib/trends';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
 
 	$: ranked = data.trends;
-	$: fastest = [...ranked].sort((a, b) => b.velocityRate - a.velocityRate).slice(0, 3);
+	$: featured = ranked[0];
+	$: rest = ranked.slice(1);
 	$: categories = new Set(ranked.flatMap((t) => t.sourceCategories));
 	$: asOfLabel = new Date('2026-11-23T12:00:00Z').toLocaleDateString('en-US', {
 		month: 'long',
@@ -15,17 +17,16 @@
 	});
 </script>
 
-<div class="space-y-10">
-	<!-- Hero -->
+<div class="space-y-12">
+	<!-- Hero: one line, then the trends -->
 	<section>
 		<p class="text-xs font-semibold uppercase tracking-widest text-rose-900">
 			Week of {asOfLabel}
 		</p>
 		<h1 class="mt-2 text-4xl font-black tracking-tight sm:text-5xl">What&apos;s about to peak?</h1>
 		<p class="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
-			Twelve trend candidates scored from TikTok, the runway, resale demand, editorial, search,
-			and more. The Trend Score blends growth, volume, cross-source breadth, sentiment, resale
-			prices, and authority — then projects each trend&apos;s peak window.
+			The trends gaining ground right now, scored from the runway, the feed, resale, and the
+			street. Tap any cover for the full story.
 		</p>
 		<div class="mt-5 flex flex-wrap gap-6 text-sm">
 			<span>
@@ -55,93 +56,61 @@
 		<p class="text-sm text-stone-500">No trends returned yet.</p>
 	{/if}
 
-	{#if fastest.length > 0}
-		<!-- Fastest risers -->
+	{#if ranked.length > 0}
+		<!-- The rack: up and coming trends first -->
 		<section>
-			<h2 class="text-lg font-bold">Fastest risers</h2>
-			<div class="mt-3 grid gap-4 sm:grid-cols-3">
-				{#each fastest as t (t.canonicalAttribute)}
-					<a
-						href="/trends/{slugify(t.canonicalAttribute)}"
-						class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-rose-900"
-					>
-						<p class="text-2xl font-black text-rose-900">{formatPercent(t.velocityRate)}</p>
-						<p class="mt-1 font-semibold capitalize">{t.canonicalAttribute}</p>
-						<p class="text-xs text-stone-500">
-							{STAGE_LABELS[t.stage]} · score {t.score.trendScore} · breadth {t.sourceCategories
-								.length}/17
-						</p>
-					</a>
+			<h2 class="text-lg font-bold">Up and coming</h2>
+			<p class="mt-1 text-sm text-stone-500">
+				Ranked by Trend Score. The cover, the score, and how long it has held the top ranks.
+			</p>
+			<div class="mt-4">
+				<TrendCover trend={featured} rank={1} featured />
+			</div>
+			<div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+				{#each rest as t, i (t.canonicalAttribute)}
+					<TrendCover trend={t} rank={i + 2} />
 				{/each}
 			</div>
 		</section>
 
-		<!-- Ranking -->
-		<section>
-			<h2 class="text-lg font-bold">Ranking</h2>
-			<p class="mt-1 text-sm text-stone-500">
-				Ranked by Trend Score. Click a trend for its source breakdown, weekly curve, and
-				projected peak window.
+		<!-- Score decoder: below the trends, half width, soft panel -->
+		<section class="mx-auto max-w-xl rounded-2xl border border-stone-200 bg-amber-50 p-6 shadow-sm">
+			<h2 class="text-lg font-bold">What the score means</h2>
+			<p class="mt-1 text-sm leading-relaxed text-stone-600">
+				Every trend scores 0 to 100. Here is what the number reads like, in plain words.
 			</p>
-			<div class="mt-4 overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
-				<table class="w-full min-w-[720px] text-left text-sm">
-					<thead>
-						<tr class="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
-							<th class="px-4 py-3 font-semibold">#</th>
-							<th class="px-4 py-3 font-semibold">Trend</th>
-							<th class="px-4 py-3 font-semibold">Type</th>
-							<th class="px-4 py-3 font-semibold">Score</th>
-							<th class="px-4 py-3 font-semibold">Stage</th>
-							<th class="px-4 py-3 font-semibold">Velocity</th>
-							<th class="px-4 py-3 font-semibold">Breadth</th>
-							<th class="px-4 py-3 font-semibold">Confidence</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each ranked as t, i (t.canonicalAttribute)}
-							<tr class="border-b border-stone-100 last:border-0 hover:bg-stone-50">
-								<td class="px-4 py-3 font-bold text-stone-400">{i + 1}</td>
-								<td class="px-4 py-3">
-									<a
-										href="/trends/{slugify(t.canonicalAttribute)}"
-										class="font-semibold capitalize hover:text-rose-900 hover:underline"
-									>
-										{t.canonicalAttribute}
-									</a>
-								</td>
-								<td class="px-4 py-3 capitalize text-stone-500">{t.attributeType}</td>
-								<td class="px-4 py-3">
-									<span class="mr-2 inline-block w-8 font-bold">{t.score.trendScore}</span>
-									<span class="inline-block h-2 w-20 overflow-hidden rounded-full bg-stone-200 align-middle">
-										<span
-											class="block h-full rounded-full bg-rose-900"
-											style="width: {t.score.trendScore}%"
-										></span>
-									</span>
-								</td>
-								<td class="px-4 py-3">
-									<span
-										class="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {STAGE_STYLES[
-											t.stage
-										]}"
-									>
-										{STAGE_LABELS[t.stage]}
-									</span>
-								</td>
-								<td
-									class="px-4 py-3 font-semibold {t.velocityRate >= 0
-										? 'text-emerald-700'
-										: 'text-rose-700'}"
-								>
-									{formatPercent(t.velocityRate)}
-								</td>
-								<td class="px-4 py-3">{t.sourceCategories.length}/17</td>
-								<td class="px-4 py-3">{t.score.confidence}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+			<ul class="mt-4 space-y-3">
+				{#each SCORE_BANDS as band (band.label)}
+					<li class="flex items-baseline gap-3 text-sm">
+						<span
+							class="w-28 shrink-0 rounded-full px-2.5 py-0.5 text-center text-xs font-semibold ring-1 {band.style}"
+						>
+							{band.label}
+						</span>
+						<span class="text-stone-600">
+							<span class="font-semibold text-stone-900">{band.min} to {band.max}</span>
+							{' · '}{band.description}
+						</span>
+					</li>
+				{/each}
+			</ul>
+			<h3 class="mt-6 text-sm font-bold uppercase tracking-wide text-stone-700">
+				What goes into it
+			</h3>
+			<ul class="mt-3 space-y-2">
+				{#each Object.entries(SIGNAL_LABELS) as [key, label] (key)}
+					<li class="text-sm text-stone-600">
+						<span class="font-semibold text-stone-900">{label}</span>
+						{' · '}{SIGNAL_DESCRIPTIONS[key]}
+					</li>
+				{/each}
+			</ul>
+			<p class="mt-4 text-sm text-stone-600">
+				<a href="/methodology" class="font-medium text-rose-900 hover:underline">
+					How the score comes together
+				</a>
+				, with every source we watch.
+			</p>
 		</section>
 	{/if}
 </div>
