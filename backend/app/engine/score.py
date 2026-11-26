@@ -36,7 +36,7 @@ Confidence (0-100) = 0.5 * observation-count score + 0.5 * source
 diversity, so a score built on 30 observations across 9 sources is
 trusted more than one built on 4 observations from 1 source.
 
-Port of ``src/engine/score.ts`` — read line by line; the structure,
+Port of ``src/engine/score.ts``. Read line by line; the structure,
 constants, and formulas below mirror it exactly.
 """
 
